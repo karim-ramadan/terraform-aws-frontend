@@ -1,9 +1,36 @@
-resource "aws_route53_record" "cloudfront_cname" {
+# Alias records (not a CNAME) so the module also works on a zone apex, and so IPv6 clients get an AAAA
+resource "aws_route53_record" "cloudfront_a" {
   zone_id = data.aws_route53_zone.this.zone_id
   name    = var.domain_to_certificate
-  type    = "CNAME"
-  ttl     = 300
-  records = [aws_cloudfront_distribution.this.domain_name]
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.this.domain_name
+    zone_id                = aws_cloudfront_distribution.this.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+# v1.0.0 created a CNAME here. The type change forces a replacement, which Terraform
+# does destroy-first, so the CNAME is gone before the A record is created
+moved {
+  from = aws_route53_record.cloudfront_cname
+  to   = aws_route53_record.cloudfront_a
+}
+
+resource "aws_route53_record" "cloudfront_aaaa" {
+  zone_id = data.aws_route53_zone.this.zone_id
+  name    = var.domain_to_certificate
+  type    = "AAAA"
+
+  alias {
+    name                   = aws_cloudfront_distribution.this.domain_name
+    zone_id                = aws_cloudfront_distribution.this.hosted_zone_id
+    evaluate_target_health = false
+  }
+
+  # Route53 rejects an AAAA next to a CNAME: wait until the A replaced the v1.0.0 CNAME
+  depends_on = [aws_route53_record.cloudfront_a]
 }
 
 resource "aws_cloudfront_origin_access_control" "this" {
@@ -45,11 +72,13 @@ resource "aws_cloudfront_distribution" "this" {
   aliases = [var.domain_to_certificate]
 
   default_cache_behavior {
-    target_origin_id       = aws_s3_bucket.this.bucket_regional_domain_name
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    cache_policy_id        = var.cache_policy_id
+    target_origin_id           = aws_s3_bucket.this.bucket_regional_domain_name
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = var.cache_policy_id
+    response_headers_policy_id = var.response_headers_policy_id
   }
 
   restrictions {
@@ -61,6 +90,9 @@ resource "aws_cloudfront_distribution" "this" {
 
 resource "aws_s3_bucket_policy" "this" {
   bucket = aws_s3_bucket.this.id
+
+  # The public access block must exist first, or a policy change can race it
+  depends_on = [aws_s3_bucket_public_access_block.this]
 
   policy = jsonencode({
     Version = "2012-10-17",

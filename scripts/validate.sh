@@ -103,6 +103,8 @@ print_info "Running tests..."
 
 # Run Terraform tests if test files exist
 if [ -d "tests" ] && [ -n "$(find tests -name '*.tftest.hcl' 2>/dev/null)" ]; then
+    # The root is only validated through the examples, so initialize it for the tests
+    terraform init -backend=false -input=false &> /dev/null
     if terraform test &> /dev/null; then
         print_success "All tests passed"
     else
