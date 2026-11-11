@@ -26,18 +26,43 @@ variable "price_class" {
 
 variable "cache_policy_id" {
   type        = string
-  default     = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
-  description = "CloudFront cache policy for the default behavior (defaults to the managed CachingDisabled policy)"
+  default     = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+  description = "CloudFront cache policy for the default behavior (defaults to the managed CachingOptimized policy, which honours the objects' Cache-Control)"
+}
+
+variable "response_headers_policy_id" {
+  type        = string
+  default     = "67f7725c-6f97-4210-82d7-5512b31e9d03"
+  nullable    = true
+  description = "CloudFront response headers policy (defaults to the managed SecurityHeadersPolicy: HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy). null disables it"
 }
 
 variable "minimum_protocol_version" {
   type        = string
-  default     = "TLSv1"
-  description = "Minimum TLS version for viewers (TLSv1.2_2021 is recommended)"
+  default     = "TLSv1.2_2021"
+  description = "Minimum TLS version for viewers"
 }
 
 variable "spa_fallback" {
   type        = bool
   default     = true
   description = "Serve /index.html with status 200 on 403 errors so client-side routing works"
+}
+
+variable "html_cache_control" {
+  type        = string
+  default     = "no-cache"
+  description = "Cache-Control of .html files (revalidated on every request by default)"
+}
+
+variable "immutable_path_prefixes" {
+  type        = list(string)
+  default     = ["assets/"]
+  description = "Path prefixes of fingerprinted build output, cached for a year (Vite emits them under assets/)"
+}
+
+variable "default_cache_control" {
+  type        = string
+  default     = "public, max-age=3600"
+  description = "Cache-Control of every other file (favicon, images in public/, …)"
 }

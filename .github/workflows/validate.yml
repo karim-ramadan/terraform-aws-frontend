@@ -15,15 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v2
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.0"
+          terraform_wrapper: false
 
-      - name: Terraform fmt
-        run: terraform fmt -check -recursive -diff
-
-      - name: Terraform init
-        run: terraform init -backend=false
-        working-directory: examples/basic
-
-      - name: Terraform validate
-        run: terraform validate -no-color
-        working-directory: examples/basic
+      # fmt, validate through the examples (the module needs the aws.us_east_1 alias)
+      # and terraform test with a mocked provider
+      - name: Validate
+        run: ./scripts/validate.sh
